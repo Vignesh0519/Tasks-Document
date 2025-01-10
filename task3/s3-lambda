@@ -1,0 +1,115 @@
+Implementation Documentation: SES to SQS to Lambda & Lambda with S3 and CloudWatch
+
+Task 1: SES → SNS → SQS → Lambda
+
+Requirements:
+SES to receive emails and forward them to SNS.
+SNS to distribute messages to SQS.
+SQS to trigger Lambda for processing.
+Logs to be stored in CloudWatch.
+
+Steps:
+Create an SNS Topic:
+
+Navigate to the SNS Console.
+Create a standard topic named MyDemoSNS.
+Create an SQS Queue:
+
+Navigate to the SQS Console.
+
+Create a queue named MyDemoQueue.
+Modify the SQS Policy:
+
+Update the SQS policy to allow SNS messages:
+json
+Copy code
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Allow-SNS-Access",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "SQS:SendMessage",
+      "Resource": "arn:aws:sqs:<region>:<account-id>:MyDemoQueue",
+      "Condition": {
+        "ArnEquals": {
+          "aws:SourceArn": "arn:aws:sns:<region>:<account-id>:MyDemoSNS"
+        }
+      }
+    }
+  ]
+}
+Subscribe SQS to SNS:
+
+Go to the SNS Console.
+Subscribe MyDemoQueue to MyDemoSNS.
+
+Create a Lambda Function:
+
+Navigate to the Lambda Console and create a function named ProcessEmailFromSQS.
+Add the following code:
+python
+Copy code
+import json
+
+def lambda_handler(event, context):
+    for record in event['Records']:
+        print(f"Received message: {record['body']}")
+    return {'statusCode': 200, 'body': 'Processed successfully'}
+Attach an SQS trigger to MyDemoQueue.
+Set Up SES Rules:
+
+Go to the SES Console and create a rule to forward emails to the MyDemoSNS topic.
+Test the Workflow:
+
+Send an email to the SES-verified email address.
+Verify that the Lambda function processes the email and logs are visible in CloudWatch.
+
+
+
+
+----------------------------------
+
+Task 2: Lambda with S3 and CloudWatch
+
+Requirements:
+Upload a file to an S3 bucket to trigger a Lambda function.
+Lambda logs the details to CloudWatch.
+
+Steps:
+Create an S3 Bucket:
+
+Navigate to the S3 Console.
+
+Create a bucket named MyDemoBucket.
+
+Create a Lambda Function:
+Go to the Lambda Console.
+Create a function named LogS3Upload.
+
+Use the following code:
+
+import json
+def lambda_handler(event, context):
+    for record in event['Records']:
+        bucket = record['s3']['bucket']['name']
+        key = record['s3']['object']['key']
+        print(f"File uploaded to bucket {bucket}, key {key}")
+    return {'statusCode': 200, 'body': 'Logged successfully'}
+
+Add S3 Trigger to Lambda:
+
+Go to the S3 Console.
+Under MyDemoBucket, navigate to Properties > Event notifications.
+Add an event to trigger the Lambda function on PUT events.
+Test the Workflow:
+
+Upload a file to MyDemoBucket.
+Verify the logs in CloudWatch.
+Testing and Validation
+For both tasks:
+
+Monitor the Lambda CloudWatch Logs to confirm events are processed.
+Ensure all necessary permissions (IAM roles) are correctly applied to allow the services to communicate.
+Let me know if you'd like more details or refinements!
