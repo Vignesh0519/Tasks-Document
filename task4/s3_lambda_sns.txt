@@ -1,0 +1,135 @@
+S3 File Upload Trigger - Lambda SNS Notification
+
+Overview
+This document outlines the approach to set up an automated system where a file uploaded to an S3 bucket triggers an AWS Lambda function, which subsequently sends a notification via Amazon SNS. The goal is to notify the relevant stakeholders about new files uploaded to S3 for monitoring, processing, or any other use cases.
+
+Components Involved
+1. Amazon S3 - Object storage service used to store files.
+2. AWS Lambda - Serverless compute service that processes the event of file upload in S3.
+3. Amazon SNS (Simple Notification Service) - A messaging service used to notify users or systems when a new file is uploaded.
+
+Workflow
+The process flow can be broken down into the following steps:
+1. S3 Event Notification: A file is uploaded to an S3 bucket.
+2. Trigger Lambda: The S3 event triggers an AWS Lambda function.
+3. Lambda Function Execution: Lambda extracts details (bucket name and file key) from the event and sends a message to SNS.
+4. SNS Notification: SNS sends notifications to subscribers about the new file upload.
+
+
+
+Step-by-Step Implementation
+
+Step 1: S3 Bucket Configuration
+1. Create an S3 Bucket:
+   - This is where the files will be uploaded. Ensure that the bucket is publicly or privately configured as per your use case.
+
+2. Configure S3 Event Notification:
+   - In the S3 console, configure an event notification to trigger the Lambda function when an object is created.
+   - Event Type: s3:ObjectCreated:*
+   - Destination: Lambda Function ARN (which will be set up later).
+
+
+
+Step 2: Lambda Function Configuration
+Create Lambda Function
+1. Create a new Lambda function in the AWS Lambda Console.
+2. Set up the Lambda function to process the S3 event:
+   - The Lambda function should be triggered by S3 events, specifically when a file is uploaded.
+   - The function should extract the bucket name and object key from the event and send a notification to SNS.
+
+Lambda Code:
+```python
+import boto3
+import os
+
+sns_client = boto3.client('sns')
+
+def lambda_handler(event, context):
+    try:
+        # Extract bucket name and object key from the event
+        bucket_name = event['Records'][0]['s3']['bucket']['name']
+        object_key = event['Records'][0]['s3']['object']['key']
+
+        # Log extracted values
+        print(f"Bucket: {bucket_name}")
+        print(f"Object Key: {object_key}")
+
+        # Prepare the notification message
+        message = f"A new file was uploaded: s3://{bucket_name}/{object_key}"
+
+        # Fetch the SNS topic ARN from environment variables
+        sns_topic_arn = os.getenv('SNS_TOPIC_ARN')
+        print(f"SNS Topic ARN: {sns_topic_arn}")
+
+        if not sns_topic_arn:
+            raise ValueError("SNS_TOPIC_ARN environment variable is not set.")
+
+        # Publish the message to the SNS topic
+        sns_client.publish(
+            TopicArn=sns_topic_arn,
+            Message=message,
+            Subject="S3 File Upload Notification"
+        )
+
+        print("Notification sent!")
+    except Exception as e:
+        print(f"Error: {e}")
+        return {"statusCode": 500, "body": f"An error occurred: {str(e)}"}
+
+    # Return success message
+    return {"statusCode": 200, "body": "Your file has been updated successfully."}
+Important Notes:
+
+SNS_TOPIC_ARN: This environment variable holds the ARN (Amazon Resource Name) of the SNS topic to which the notification will be sent. Ensure this is set correctly in the Lambda configuration.
+Step 3: SNS Topic Configuration Create SNS Topic:
+
+Go to the Amazon SNS Console and create a new SNS topic. You can name it something like S3FileUploadNotification.
+
+Set up Subscribers:
+
+You can add multiple subscribers to the SNS topic (email, SMS, etc.) to receive notifications.
+Example: You can subscribe an email address so that every time a file is uploaded to S3, the notification is sent to that email.
+Configure Permissions:
+
+IAM Role Permissions:
+
+Ensure the Lambda execution role has the necessary permission to publish messages to SNS. Attach an IAM policy allowing sns:Publish to the SNS topic.
+Example IAM Policy:
+
+json
+Copy code
+{
+  "Effect": "Allow",
+  "Action": "sns:Publish",
+  "Resource": "arn:aws:sns:us-east-1:195275643268:S3FileUploadNotification:201fc364-7464-4ac8-8d9d-ba53eee8a979"
+}
+
+
+
+Step 4: Testing the System
+
+Upload a File to S3:
+
+Upload a file to the S3 bucket you have configured.
+Verify Lambda Execution:
+
+Check Lambda logs in CloudWatch to ensure the function is triggered successfully and that the SNS notification is sent.
+Check SNS Notification:
+
+Verify that subscribers to the SNS topic receive the notification about the file upload.
+Best Practices
+
+Error Handling: Implement error handling in Lambda to log or handle issues such as missing environment variables or failures in sending the SNS notification.
+Monitoring: Set up monitoring using CloudWatch to track Lambda function execution and ensure that the process runs smoothly.
+Security: Ensure that proper IAM roles and permissions are in place to secure access to S3, Lambda, and SNS.
+Troubleshooting
+
+SNS Notification Not Received:
+
+Check if the SNS topic ARN is correctly set in the Lambda environment variables.
+Ensure that the SNS subscription is confirmed (for email, ensure the confirmation link is clicked).
+Lambda Execution Fails:
+
+Check CloudWatch logs for error messages to identify the issue.
+Verify that the Lambda function has the necessary permissions to access the S3 bucket and publish to SNS.
+Conclusion By following the steps outlined in this document, you will have an automated system where files uploaded to an S3 bucket trigger an AWS Lambda function that sends notifications via SNS. This can be used for real-time notifications in various use cases, including file processing, monitoring, and more.
